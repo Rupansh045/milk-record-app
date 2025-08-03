@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Milk Records</title>
+  <link rel="stylesheet" href="entryfile.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    @media print {
+      body * {
+        visibility: hidden;
+      }
+      table, table * {
+        visibility: visible;
+      }
+      table {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h2>📋 Milk Entry Records</h2>
+  <input type="text" id="searchInput" placeholder="🔍 Search by Customer Name" onkeyup="filterTable()" style="margin-bottom: 10px;">
+
+  <h3>📊 Customer Monthly Summary</h3>
+  <label for="summaryName">Select Customer Name:</label>
+  <select id="summaryName">
+    <option value="">-- Select Customer --</option>
+  </select>
+  <button onclick="showSummary()">Show Summary</button>
+  <div id="summaryResult" style="margin-top: 10px; font-weight: bold;"></div>
+
+  <h3>📅 Filter by Date Range</h3>
+  <label>From:</label>
+  <input type="date" id="fromDate">
+  <label>To:</label>
+  <input type="date" id="toDate">
+  <button onclick="filterByDate()">📆 Filter</button>
+
+  <table border="1" id="recordsTable">
+    <thead>
+      <tr>
+        <th>Date</th>
+        <th>Name</th>
+        <th>Milk (Litres)</th>
+        <th>Fat (%)</th>
+        <th>Rate (₹)</th>
+        <th>Total (₹)</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- Entries will be added by JS -->
+    </tbody>
+  </table>
+
+  <br>
+  <button onclick="clearAll()">🗑️ Clear All Records</button>
+  <button onclick="window.print()">🖨️ Print Table</button>
+  <br><br>
+  <a href="entryfile.html">➕ Add New Entry</a>
+
+  <h3>💰 Total Payment Chart by Customer</h3>
+  <canvas id="paymentChart" width="400" height="200"></canvas>
+
+  <script>
+    let data = JSON.parse(localStorage.getItem("milkEntries")) || [];
+    const tableBody = document.querySelector("#recordsTable tbody");
+
+    function renderTable(dataArray) {
+      tableBody.innerHTML = "";
+      dataArray.forEach((entry, index) => {
+        const row = document.createElement("tr");
+        row.classList.add("data-row");
+        row.innerHTML = `
+          <td>${entry.date}</td>
+          <td>${entry.name}</td>
+          <td>${entry.milk}</td>
+          <td>${entry.fat}</td>
+          <td>${entry.rate}</td>
+          <td>₹${entry.total}</td>
+          <td>
+            <button onclick="deleteEntry(${index})">❌</button>
+            <a href="edit-entry.html?index=${index}"><button>✏️</button></a>
+          </td>
+        `;
+        tableBody.appendChild(row);
+      });
+    }
+
+    renderTable(data);
+
+    function clearAll() {
+      const confirmDelete = confirm("❗Are you sure you want to delete all milk entries?");
+      if (confirmDelete) {
+        localStorage.removeItem("milkEntries");
+        location.reload();
+      }
+    }
+
+    function deleteEntry(index) {
+      data.splice(index, 1);
+      localStorage.setItem("milkEntries", JSON.stringify(data));
+      renderTable(data);
+      drawPaymentChart();
+    }
+
+    function populateCustomerList() {
+      const nameSet = new Set();
+      const dropdown = document.getElementById("summaryName");
+      data.forEach(entry => {
+        nameSet.add(entry.name.trim());
+      });
+      dropdown.innerHTML = `<option value="">-- Select Customer --</option>`;
+      nameSet.forEach(name => {
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = name;
+        dropdown.appendChild(option);
+      });
+    }
+
+    window.onload = () => {
+      populateCustomerList();
+      drawPaymentChart();
+    };
+
+    function showSummary() {
+      const name = document.getElementById("summaryName").value.trim().toLowerCase();
+      let totalMilk = 0;
+      let totalAmount = 0;
+      data.forEach(entry => {
+        if (entry.name.trim().toLowerCase() === name) {
+          totalMilk += parseFloat(entry.milk);
+          totalAmount += parseFloat(entry.total);
+        }
+      });
+      const resultDiv = document.getElementById("summaryResult");
+      if (totalMilk === 0) {
+        resultDiv.innerHTML = `⚠️ No records found for "${name}"`;
+      } else {
+        resultDiv.innerHTML = `
+          ✅ <b>${name.toUpperCase()}</b>'s Summary:<br>
+          🥛 Total Milk: <b>${totalMilk.toFixed(2)} Litres</b><br>
+          💰 Total Amount: <b>₹${totalAmount.toFixed(2)}</b>
+        `;
+      }
+    }
+
+    function filterTable() {
+      const input = document.getElementById("searchInput").value.toLowerCase();
+      const rows = document.querySelectorAll(".data-row");
+      rows.forEach(row => {
+        const name = row.children[1].textContent.toLowerCase();
+        row.style.display = name.includes(input) ? "" : "none";
+      });
+    }
+
+    function filterByDate() {
+      const from = document.getElementById("fromDate").value;
+      const to = document.getElementById("toDate").value;
+      if (!from || !to) {
+        alert("⚠️ Please select both From and To dates.");
+        return;
+      }
+      const filtered = data.filter(entry => entry.date >= from && entry.date <= to);
+      renderTable(filtered);
+    }
+
+    function drawPaymentChart() {
+      const totalsByCustomer = {};
+      data.forEach(entry => {
+        const name = entry.name.trim();
+        if (!totalsByCustomer[name]) {
+          totalsByCustomer[name] = 0;
+        }
+        totalsByCustomer[name] += parseFloat(entry.total);
+      });
+
+      const ctx = document.getElementById('paymentChart').getContext('2d');
+      if (window.paymentChartInstance) {
+        window.paymentChartInstance.destroy();
+      }
+      window.paymentChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: Object.keys(totalsByCustomer),
+          datasets: [{
+            label: '💰 Total Payment (₹)',
+            data: Object.values(totalsByCustomer),
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            y: {
+              beginAtZero: true
+            }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>

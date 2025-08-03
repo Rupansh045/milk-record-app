@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Milk Entry</title>
+  <link rel="stylesheet" href="entryfile.css">
+</head>
+<body>
+  <h2>📝 Milk Entry Form</h2>
+
+  <form id="milkForm">
+    <label>Date:</label><br>
+    <input type="date" id="date" required><br><br>
+
+    <label>Customer Name:</label><br>
+    <input type="text" id="name" required><br><br>
+
+    <label>Milk Quantity (in litres):</label><br>
+    <input type="number" id="milk" step="0.1" required><br><br>
+
+    <label>Fat Percentage (%):</label><br>
+    <input type="number" id="fat" step="0.1" required><br><br>
+
+    <label>Rate (₹ per litre):</label><br>
+    <input type="number" id="rate" readonly><br><br>
+
+    <button type="submit">Add Entry</button>
+  </form>
+
+  <script>
+    // Example: Fat rate per percentage (₹ per litre)
+    function calculateRate(fat) {
+      return fat * 8; // Change multiplier as per your village rate logic
+    }
+
+    document.getElementById("fat").addEventListener("input", function () {
+      const fat = parseFloat(this.value);
+      if (!isNaN(fat)) {
+        document.getElementById("rate").value = calculateRate(fat).toFixed(2);
+      }
+    });
+
+    document.getElementById("milkForm").addEventListener("submit", function (e) {
+      e.preventDefault();
+
+      const date = document.getElementById("date").value;
+      const name = document.getElementById("name").value.trim();
+      const milk = parseFloat(document.getElementById("milk").value);
+      const fat = parseFloat(document.getElementById("fat").value);
+      const rate = parseFloat(document.getElementById("rate").value);
+      const total = milk * rate;
+
+      const entry = { date, name, milk, fat, rate, total: total.toFixed(2) };
+
+      const existing = JSON.parse(localStorage.getItem("milkEntries")) || [];
+      existing.push(entry);
+      localStorage.setItem("milkEntries", JSON.stringify(existing));
+
+      alert("✅ Entry saved!");
+      window.location.href = "index.html";
+    });
+  </script>
+</body>
+</html>
